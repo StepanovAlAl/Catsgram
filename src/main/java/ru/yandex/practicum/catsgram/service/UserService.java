@@ -70,8 +70,8 @@ public class UserService {
         return oldUser;
     }
 
-    public Optional<User> findUserById(Long id) {
-        return Optional.ofNullable(users.get(id));
+    public Optional<User> findById(long authorId) {
+        return Optional.ofNullable(users.get(authorId));
     }
 
     private long getNextId() {
