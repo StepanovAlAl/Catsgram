@@ -14,8 +14,8 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+
     private final Map<Long, User> users = new HashMap<>();
-    private final Map<String, Long> emailToIdMap = new HashMap<>();
 
     public Collection<User> findAll() {
         return users.values();
@@ -25,16 +25,12 @@ public class UserService {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             throw new ConditionsNotMetException("Имейл должен быть указан");
         }
-
-        if (emailToIdMap.containsKey(user.getEmail())) {
-            throw new DuplicatedDataException("Этот имейл уже используется");
+        if (users.containsValue(user)) {
+            throw new DuplicatedDataException("Данный имейл уже используется");
         }
-
         user.setId(getNextId());
         user.setRegistrationDate(Instant.now());
         users.put(user.getId(), user);
-        emailToIdMap.put(user.getEmail(), user.getId());
-
         return user;
     }
 
@@ -42,32 +38,24 @@ public class UserService {
         if (newUser.getId() == null) {
             throw new ConditionsNotMetException("Id должен быть указан");
         }
-
-        if (!users.containsKey(newUser.getId())) {
-            throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
-        }
-
-        User oldUser = users.get(newUser.getId());
-
-        if (newUser.getEmail() != null && !newUser.getEmail().equals(oldUser.getEmail())) {
-            if (emailToIdMap.containsKey(newUser.getEmail())) {
-                throw new DuplicatedDataException("Этот имейл уже используется");
+        if (users.containsKey(newUser.getId())) {
+            User oldUser = users.get(newUser.getId());
+            if (newUser.getEmail() != null &&
+                    !oldUser.getEmail().equalsIgnoreCase(newUser.getEmail())) {
+                if (users.containsValue(newUser)) {
+                    throw new DuplicatedDataException("Данный имейл уже используется");
+                }
+                oldUser.setEmail(newUser.getEmail());
             }
-            emailToIdMap.remove(oldUser.getEmail());
-            emailToIdMap.put(newUser.getEmail(), newUser.getId());
+            if (newUser.getUsername() != null && !newUser.getUsername().isBlank()) {
+                oldUser.setUsername(newUser.getUsername());
+            }
+            if (newUser.getPassword() != null && !newUser.getPassword().isBlank()) {
+                oldUser.setPassword(newUser.getPassword());
+            }
+            return oldUser;
         }
-
-        if (newUser.getUsername() != null) {
-            oldUser.setUsername(newUser.getUsername());
-        }
-        if (newUser.getEmail() != null) {
-            oldUser.setEmail(newUser.getEmail());
-        }
-        if (newUser.getPassword() != null) {
-            oldUser.setPassword(newUser.getPassword());
-        }
-
-        return oldUser;
+        throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
     }
 
     public Optional<User> findById(long authorId) {
@@ -75,9 +63,11 @@ public class UserService {
     }
 
     private long getNextId() {
-        return users.keySet().stream()
+        long currentMaxId = users.keySet()
+                .stream()
                 .mapToLong(id -> id)
                 .max()
-                .orElse(0) + 1;
+                .orElse(0);
+        return ++currentMaxId;
     }
 }
